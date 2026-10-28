@@ -228,7 +228,7 @@ an unlocked bootloader.
 | `ninja: no work to do` after patching | Stale kernel build — `rm -rf out/target/product/urd/obj/KERNEL_OBJ` |
 | Soong lock error | `rm -f out/.lock` |
 | Build dies with `SyntaxError` in a `.py` | The image's `python` must be python2.7 (it is, by default) |
-| `repo sync` fails on webview APKs | `git-lfs` missing — it is installed in the image |
+| `repo sync` fails on webview APKs, or the build dies at ~96% with `zip END header not found` | Git LFS pointers — `cd external/chromium-webview/prebuilt/*/ && git lfs pull` |
 | Out of disk space | `/tmp` may be a small tmpfs; write logs elsewhere |
 
 ---
