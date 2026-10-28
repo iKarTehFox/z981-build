@@ -17,24 +17,36 @@
   which matches the device tree's lineage-16.0 branch and the ROM build date.
   Without this override, `repo sync` fails with:
       fatal: Couldn't find remote ref refs/heads/lineage-16.0
+
+  FORKS: the three device-specific projects are pulled from my forks rather
+  than the ZTE-ZMAX-PRO originals. The originals are dormant hobby repos for a
+  2016 device; if they are deleted or made private, a fresh `repo sync` breaks
+  with no mirror. The forks are kept in sync with upstream and give us control
+  over their lifetime. Branch names are identical to upstream:
+      android_device_zte_urd : lineage-16.0
+      android_kernel_zte_urd : lineage-16.0-new
+      vendor_zte_urd         : lineage-16.0
+
+  The forks also carry the device/vendor/kernel fixes that used to be applied
+  by patch-*.py at build time (see the README). Because `repo sync` pulls the
+  forks, those changes now persist instead of being re-applied every build.
 -->
 <manifest>
   <project path="packages/resources/devicesettings"
            name="LineageOS/android_packages_resources_devicesettings"
            revision="lineage-16.0" />
 
-  <project name="ZTE-ZMAX-PRO/android_device_zte_urd"
+  <project name="iKarTehFox/android_device_zte_urd"
            path="device/zte/urd"
            remote="github"
            revision="lineage-16.0" />
 
-  <project name="ZTE-ZMAX-PRO/vendor_zte_urd"
+  <project name="iKarTehFox/vendor_zte_urd"
            path="vendor/zte/urd"
            remote="github"
            revision="lineage-16.0" />
 
-  <!-- revision corrected: lineage-16.0 -> lineage-16.0-new -->
-  <project name="ZTE-ZMAX-PRO/android_kernel_zte_urd"
+  <project name="iKarTehFox/android_kernel_zte_urd"
            path="kernel/zte/urd"
            remote="github"
            revision="lineage-16.0-new" />

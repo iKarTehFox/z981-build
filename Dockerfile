@@ -71,16 +71,14 @@ COPY build.sh /opt/build.sh
 COPY urd_manifest.xml /opt/urd_manifest.xml
 RUN chmod +x /opt/build.sh
 
-# --- privapp-permissions whitelist ------------------------------------------
-# The device tree does not ship this file, so patch-device-mk.py installs it
-# into device/zte/urd/ at build time. Bake the source copy into the image so
-# the patch has something to install (the /src volume is otherwise untouched).
-COPY privapp-permissions-com.qualcomm.location.xml /opt/privapp-permissions-com.qualcomm.location.xml
-
 # --- patch scripts baked into the image -------------------------------------
 # build.sh applies these before every build (see do_patch). They are idempotent
 # and edit the source tree in place, so they must be re-applied after any
 # `repo sync`.
+#
+# Only patches to repos we do NOT own live here (vendor/lineage, frameworks/av).
+# The device/vendor/kernel fixes are committed into my forks and delivered by
+# `repo sync` (see urd_manifest.xml), so they need no script.
 COPY patch-*.py /opt/patches/
 RUN chmod +x /opt/patches/*.py
 

@@ -93,7 +93,7 @@ do_sync() {
     repo sync -c -j4 --force-sync --no-clone-bundle --no-tags
 }
 
-# --- 2b. apply kernel/device patches ----------------------------------------
+# --- 2b. apply upstream patches ---------------------------------------------
 # The patch-*.py scripts are baked into the image at /opt/patches/. They are
 # idempotent: each checks whether its change is already present and exits 0 if
 # so. Run them before every build so the source tree always reflects the
@@ -102,6 +102,11 @@ do_sync() {
 # NOTE: these edit the source tree in place. `repo sync` would revert them, so
 # they must be re-applied after any sync (which is why this runs on every
 # build, not just once).
+#
+# SCOPE: only patches to repos we do NOT own live here (vendor/lineage,
+# frameworks/av). The device/vendor/kernel fixes are committed directly into
+# my forks (see urd_manifest.xml), so `repo sync` delivers them and no patch
+# script is needed.
 do_patch() {
     log "applying patches"
     local dir=/opt/patches

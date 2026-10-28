@@ -60,9 +60,8 @@ z981-build/
 ├── build.sh                # CONTAINER driver: init, sync, patch, build
 ├── build-image.sh          # thin wrapper around `docker build` (+ --check)
 ├── run.ps1                 # Windows (PowerShell) driver, uses named volumes
-├── urd_manifest.xml        # local manifest (fixes the kernel branch)
-├── patch-*.py              # 9 idempotent source patches (see below)
-├── privapp-permissions-com.qualcomm.location.xml
+├── urd_manifest.xml        # local manifest (forks + kernel branch fix)
+├── patch-*.py              # 3 idempotent upstream patches (see below)
 └── LICENSE                 # GPL-2.0 (covers this repo's files only)
 ```
 
@@ -109,23 +108,34 @@ Environment overrides: `IMAGE`, `SRC_DIR`, `OUT_DIR`, `CCACHE_DIR`, `MEM`,
 
 ---
 
-## The patches
+## Where the fixes live
+
+There are two mechanisms, chosen by who controls the repo:
+
+### 1. Forks (device tree, vendor, kernel)
+
+The three device-specific repos are pulled from **my forks** rather
+than the ZTE-ZMAX-PRO originals (see `urd_manifest.xml`). This keeps the build
+working if the originals disappear, and lets the forks carry the
+device/vendor/kernel fixes so `repo sync` delivers them.
+
+| Fork | Path | Branch | Fixes it carries |
+|------|------|--------|------------------|
+| `iKarTehFox/android_device_zte_urd` | `device/zte/urd` | `lineage-16.0` | privapp whitelist, ADB-during-boot, CPP firmware path |
+| `iKarTehFox/vendor_zte_urd` | `vendor/zte/urd` | `lineage-16.0` | CPP firmware install path |
+| `iKarTehFox/android_kernel_zte_urd` | `kernel/zte/urd` | `lineage-16.0-new` | ARM32 `getrandom`, `__NR_compat_syscalls`, CPP frame length |
+
+### 2. Patch scripts (LineageOS repos we don't own)
 
 `build.sh` applies every `patch-*.py` in `/opt/patches/` before each build.
-They are **idempotent** (each checks whether its change is already present) and
-edit the source tree in place, so they are re-applied after every `repo sync`.
+They are **idempotent** and edit the source tree in place, so they are
+re-applied after every `repo sync`. These target upstream repos we don't fork.
 
-| Patch | Why it exists |
-|-------|---------------|
-| `patch-variable.py` | Soong kernel variables — **required to build** |
-| `patch-clearkey.py` | Build fix for the ClearKey DRM plugin |
-| `patch-getrandom.py` | ARM32 `getrandom` syscall (384) — **required to boot** |
-| `patch-compat-syscalls.py` | `__NR_compat_syscalls` 384→385 — **required to boot** |
-| `patch-device-mk.py` | privapp whitelist + ADB-during-boot props |
-| `patch-usb-rc.py` | ADB during boot (optional) |
-| `patch-cpp-framelen.py` | Relaxes the CPP frame-message length check |
-| `patch-camera-fwpath.py` | **Camera fix** — installs CPP firmware where `ueventd` looks |
-| `patch-video-encoder.py` | **Video fix** — software encoder + correct YUV buffers |
+| Patch | Target | Why it exists |
+|-------|--------|---------------|
+| `patch-variable.py` | `vendor/lineage` | Soong kernel variables — **required to build** |
+| `patch-clearkey.py` | `frameworks/av` | Build fix for the ClearKey DRM plugin |
+| `patch-video-encoder.py` | `frameworks/av` + device tree | **Video fix** — software encoder + correct YUV buffers |
 
 ### The privapp-permissions fix
 
@@ -136,10 +146,9 @@ during `systemReady()`, `system_server` crashes, and Rescue Party reboots to
 recovery.
 
 The device tree does **not** ship
-`privapp-permissions-com.qualcomm.location.xml`, so `patch-device-mk.py`
-installs it into `device/zte/urd/` from the copy baked into the image at
-`/opt/privapp-permissions-com.qualcomm.location.xml`, then adds the
-`PRODUCT_COPY_FILES` rule.
+`privapp-permissions-com.qualcomm.location.xml`, so it is committed into the
+device-tree fork at `device/zte/urd/privapp-permissions-com.qualcomm.location.xml`
+along with the `PRODUCT_COPY_FILES` rule in `device.mk`.
 
 The copy rule must use a **root-relative** source path
 (`device/zte/urd/privapp-permissions-com.qualcomm.location.xml`), **not**
@@ -161,10 +170,10 @@ The CPP (camera post-processing) firmware was being installed to
 never loaded the firmware, the CPP timed out, and the camera HAL looped on
 `0xdeadbeef` forever — a black preview.
 
-`patch-camera-fwpath.py` changes the install path to `/vendor/firmware/` in
-both `proprietary-files.txt` and `urd-vendor.mk`. With the firmware loading
-correctly, the HAL selects firmware v1.5.0 and the camera works. **No kernel
-patch is needed.**
+The install path is changed to `/vendor/firmware/` in both
+`proprietary-files.txt` (device-tree fork) and `urd-vendor.mk` (vendor fork).
+With the firmware loading correctly, the HAL selects firmware v1.5.0 and the
+camera works. **No kernel patch is needed.**
 
 ### The video fix
 

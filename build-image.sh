@@ -69,7 +69,7 @@ if [ "$CHECK_ONLY" = 1 ]; then
     docker images "$IMAGE" --format "    {{.Repository}}:{{.Tag}}  {{.Size}}  ({{.CreatedSince}})"
 
     step "Baked-in files (must match the working tree)"
-    for f in build.sh urd_manifest.xml privapp-permissions-com.qualcomm.location.xml; do
+    for f in build.sh urd_manifest.xml; do
         if docker run --rm "$IMAGE" test -f "/opt/$f" 2>/dev/null; then
             local_sum=$(sha256sum "$SCRIPT_DIR/$f" | cut -d' ' -f1)
             image_sum=$(docker run --rm "$IMAGE" sha256sum "/opt/$f" | cut -d' ' -f1)
