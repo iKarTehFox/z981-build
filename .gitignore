@@ -1,0 +1,11 @@
+# Build artifacts and large directories (never commit these)
+src/
+out/
+ccache/
+*.log
+*.zip
+*.img
+
+# Editor / OS cruft
+.vscode/
+.DS_Store

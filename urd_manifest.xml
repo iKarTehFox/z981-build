@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SPDX-License-Identifier: GPL-2.0-only
+  Copyright (C) 2026 Diego P. (iKarTehFox) and contributors
+
+  Local manifest for ZTE Z981 (urd) - LineageOS 16.0
+
+  Based on:
+    https://raw.githubusercontent.com/ZTE-ZMAX-PRO/local_manifest/lineage-16.0/urd_manifest.xml
+
+  FIX: the upstream manifest points the kernel at revision="lineage-16.0", but
+  ZTE-ZMAX-PRO/android_kernel_zte_urd has NO such branch. Its branches are:
+      9.x, 9.x-test, cm-14.1-new, lineage-15.1,
+      lineage-16.0-f2fs, lineage-16.0-f2fs-experimental,
+      lineage-16.0-new, lineage-16.0-new-dev, stock-urd-6.0.1
+  The correct one is `lineage-16.0-new` (2019-05-14, "urd/defconfig: Regenerate"),
+  which matches the device tree's lineage-16.0 branch and the ROM build date.
+  Without this override, `repo sync` fails with:
+      fatal: Couldn't find remote ref refs/heads/lineage-16.0
+-->
+<manifest>
+  <project path="packages/resources/devicesettings"
+           name="LineageOS/android_packages_resources_devicesettings"
+           revision="lineage-16.0" />
+
+  <project name="ZTE-ZMAX-PRO/android_device_zte_urd"
+           path="device/zte/urd"
+           remote="github"
+           revision="lineage-16.0" />
+
+  <project name="ZTE-ZMAX-PRO/vendor_zte_urd"
+           path="vendor/zte/urd"
+           remote="github"
+           revision="lineage-16.0" />
+
+  <!-- revision corrected: lineage-16.0 -> lineage-16.0-new -->
+  <project name="ZTE-ZMAX-PRO/android_kernel_zte_urd"
+           path="kernel/zte/urd"
+           remote="github"
+           revision="lineage-16.0-new" />
+</manifest>

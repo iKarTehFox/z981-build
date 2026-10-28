@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-License-Identifier: GPL-2.0-only
+  Copyright (C) 2026 Diego P. (iKarTehFox) and contributors
+
+  Privapp permission whitelist for com.qualcomm.location (IZat location service).
+
+  WHY THIS FILE EXISTS:
+  com.qualcomm.location is a privileged app (system/priv-app) that requests
+  signature|privileged permissions. Android 9 enforces the privapp permission
+  whitelist (ro.control_privapp_permissions=enforce), and when a privileged app
+  requests a permission that is not whitelisted, PermissionManagerService
+  throws during systemReady():
+
+      java.lang.IllegalStateException: Signature|privileged permissions not in
+      privapp-permissions whitelist:
+      {com.qualcomm.location: android.permission.CONTROL_LOCATION_UPDATES}
+
+  That exception crashes system_server on every boot, so Android's Rescue Party
+  fires after 3 attempts and reboots to recovery.
+
+  The permissions below are the signature|privileged ones the APK actually
+  requests (verified with `aapt dump permissions`).
+-->
+<permissions>
+    <privapp-permissions package="com.qualcomm.location">
+        <permission name="android.permission.CONTROL_LOCATION_UPDATES"/>
+        <permission name="android.permission.PROCESS_OUTGOING_CALLS"/>
+        <permission name="android.permission.READ_PHONE_STATE"/>
+    </privapp-permissions>
+</permissions>
