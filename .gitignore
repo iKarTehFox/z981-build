@@ -6,6 +6,9 @@ ccache/
 *.zip
 *.img
 
+# Local settings
+settings.conf
+
 # Editor / OS cruft
 .vscode/
 .DS_Store

@@ -1,0 +1,38 @@
+# Copy this file to `settings.conf` and edit it. run.sh / run.ps1 read
+# `settings.conf` from this directory automatically if it exists.
+#
+# Format: KEY=value, one per line. `#` starts a comment. Quotes are optional
+# and are stripped. Blank lines are ignored.
+#
+# Precedence (highest wins):
+#   1. command-line flag   (e.g. ./run.sh --src /path build)
+#   2. environment variable (e.g. SRC_DIR=/path ./run.sh build)
+#   3. this file
+#   4. built-in default
+#
+# So a value here is only a default -- you can always override it per-run
+# without editing the file.
+
+# --- paths ------------------------------------------------------------------
+# Where the Android source tree lives (~50 GB). Must be a Linux filesystem
+# that supports directory renames (see README).
+SRC_DIR=/path/to/lineage-src
+
+# Where build output goes (~40 GB). Put this on a fast disk if you have one.
+OUT_DIR=/path/to/lineage-out
+
+# Compiler cache (up to 30 GB). Leave unset to use <repo>/ccache.
+#CCACHE_DIR=/path/to/ccache
+
+# --- container --------------------------------------------------------------
+# Docker image tag.
+#IMAGE=lineage16-urd
+
+# Memory limit for the container.
+#MEM=8g
+
+# Parallel build jobs.
+#JOBS=6
+
+# Run the container as your own uid/gid instead of root (0 = root).
+#RUN_AS_USER=0

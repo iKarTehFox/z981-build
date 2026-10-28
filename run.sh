@@ -17,6 +17,11 @@
 #   ./run.sh status          # show image + directory sizes
 #   ./run.sh clean           # DESTROY the source + out + ccache directories
 #
+# Settings:
+#   Copy settings.conf.example to settings.conf and edit it. It is read
+#   automatically. Precedence: command-line flag > environment variable >
+#   settings.conf > built-in default. See `./run.sh --help`.
+#
 # ---------------------------------------------------------------------------
 # WHERE THE SOURCE TREE LIVES
 #
@@ -61,13 +66,97 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+step() { echo ""; echo "[*] $*"; }
+ok()   { echo "[+] $*"; }
+warn() { echo "[!] $*"; }
+
+# --- settings file ----------------------------------------------------------
+# A `settings.conf` next to this script is read automatically if present.
+# Format is KEY=value (see settings.conf.example). Values from the file are
+# only defaults: an environment variable or a command-line flag overrides them.
+#
+# Precedence (highest wins):
+#   1. command-line flag   (--src, --out, --ccache, --image, --mem, --jobs)
+#   2. environment variable (SRC_DIR, OUT_DIR, ...)
+#   3. settings.conf
+#   4. built-in default
+CONFIG_FILE="$SCRIPT_DIR/settings.conf"
+
+# Parse args first so --config can point at a different file.
+ACTION=""
+ARG_SRC="" ARG_OUT="" ARG_CCACHE="" ARG_IMAGE="" ARG_MEM="" ARG_JOBS=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --config)  CONFIG_FILE="$2"; shift 2 ;;
+        --src)     ARG_SRC="$2";     shift 2 ;;
+        --out)     ARG_OUT="$2";     shift 2 ;;
+        --ccache)  ARG_CCACHE="$2";  shift 2 ;;
+        --image)   ARG_IMAGE="$2";   shift 2 ;;
+        --mem)     ARG_MEM="$2";     shift 2 ;;
+        --jobs)    ARG_JOBS="$2";    shift 2 ;;
+        -h|--help)
+            echo "Usage: $0 [options] [action]"
+            echo ""
+            echo "Actions: build-image | init | sync | build | all | shell | status | clean"
+            echo ""
+            echo "Options:"
+            echo "  --config FILE   read settings from FILE (default: settings.conf)"
+            echo "  --src DIR       source tree (overrides SRC_DIR)"
+            echo "  --out DIR       build output (overrides OUT_DIR)"
+            echo "  --ccache DIR    ccache dir (overrides CCACHE_DIR)"
+            echo "  --image TAG     docker image tag (overrides IMAGE)"
+            echo "  --mem SIZE      container memory limit (overrides MEM)"
+            echo "  --jobs N        parallel jobs (overrides JOBS)"
+            exit 0
+            ;;
+        -*) echo "Unknown option: $1 (try --help)" >&2; exit 1 ;;
+        *)  ACTION="$1"; shift ;;
+    esac
+done
+
+# Load the settings file. Only KEY=value lines are honoured; anything else is
+# ignored, so a stray line cannot execute code.
+if [ -f "$CONFIG_FILE" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+        # strip comments and surrounding whitespace
+        line="${line%%#*}"
+        line="$(printf '%s' "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+        [ -z "$line" ] && continue
+        case "$line" in
+            *=*) ;;
+            *) continue ;;
+        esac
+        key="${line%%=*}"
+        val="${line#*=}"
+        # strip optional surrounding quotes
+        val="${val%\"}"; val="${val#\"}"
+        val="${val%\'}"; val="${val#\'}"
+        # only accept known keys, and only if not already set in the env
+        case "$key" in
+            SRC_DIR|OUT_DIR|CCACHE_DIR|IMAGE|MEM|JOBS|RUN_AS_USER)
+                if [ -z "${!key:-}" ]; then
+                    export "$key=$val"
+                fi
+                ;;
+        esac
+    done < "$CONFIG_FILE"
+fi
+
+# Command-line flags beat everything.
+[ -n "$ARG_SRC" ]    && SRC_DIR="$ARG_SRC"
+[ -n "$ARG_OUT" ]    && OUT_DIR="$ARG_OUT"
+[ -n "$ARG_CCACHE" ] && CCACHE_DIR="$ARG_CCACHE"
+[ -n "$ARG_IMAGE" ]  && IMAGE="$ARG_IMAGE"
+[ -n "$ARG_MEM" ]    && MEM="$ARG_MEM"
+[ -n "$ARG_JOBS" ]   && JOBS="$ARG_JOBS"
+
 IMAGE="${IMAGE:-lineage16-urd}"
 MEM="${MEM:-8g}"
 JOBS="${JOBS:-6}"
 RUN_AS_USER="${RUN_AS_USER:-0}"
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Portable defaults: everything lives next to this repo unless overridden.
 SRC_DIR="${SRC_DIR:-$REPO_DIR/src}"
@@ -77,11 +166,7 @@ CCACHE_DIR="${CCACHE_DIR:-$REPO_DIR/ccache}"
 # build.sh is baked into the image at /opt/build.sh, so the source tree stays clean.
 BUILD_SH_IN_IMAGE=/opt/build.sh
 
-ACTION="${1:-shell}"
-
-step() { echo ""; echo "[*] $*"; }
-ok()   { echo "[+] $*"; }
-warn() { echo "[!] $*"; }
+ACTION="${ACTION:-shell}"
 
 # --- helpers ---------------------------------------------------------------
 

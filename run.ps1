@@ -15,6 +15,11 @@
 #   .\run.ps1 status          # show volume sizes / state
 #   .\run.ps1 clean           # DESTROY the source + ccache volumes
 #
+# Settings:
+#   Copy settings.conf.example to settings.conf and edit it. It is read
+#   automatically. Precedence: command-line parameter > environment variable >
+#   settings.conf > built-in default.
+#
 # Memory: the container is capped at 7 GB (host has 15.8 GB, Docker sees 8.2 GB).
 # CPU: unlimited (all 12 threads available).
 #
@@ -41,11 +46,14 @@ param(
     [ValidateSet('build-image', 'init', 'sync', 'build', 'all', 'shell', 'status', 'clean')]
     [string]$Action = 'shell',
 
-    [string]$ImageName = 'lineage16-urd',
-    [string]$SrcVolume = 'lineage-src',
-    [string]$CcacheVolume = 'lineage-ccache',
-    [string]$MemLimit = '7g',
-    [int]$Jobs = 4
+    # Settings file. Defaults to settings.conf next to this script.
+    [string]$Config = '',
+
+    [string]$ImageName = '',
+    [string]$SrcVolume = '',
+    [string]$CcacheVolume = '',
+    [string]$MemLimit = '',
+    [string]$Jobs = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -53,6 +61,49 @@ $ErrorActionPreference = 'Stop'
 function Write-Step { param([string]$m) Write-Host "`n[*] $m" -ForegroundColor Cyan }
 function Write-Ok   { param([string]$m) Write-Host "[+] $m" -ForegroundColor Green }
 function Write-Warn { param([string]$m) Write-Host "[!] $m" -ForegroundColor Yellow }
+
+# --- settings file ----------------------------------------------------------
+# A `settings.conf` next to this script is read automatically if present.
+# Format is KEY=value (see settings.conf.example). Values from the file are
+# only defaults: a command-line parameter or an environment variable overrides
+# them.
+#
+# Precedence (highest wins):
+#   1. command-line parameter (-SrcVolume, -MemLimit, ...)
+#   2. environment variable (SRC_DIR, OUT_DIR, ...)
+#   3. settings.conf
+#   4. built-in default
+if (-not $Config) { $Config = Join-Path $PSScriptRoot 'settings.conf' }
+
+$fileSettings = @{}
+if (Test-Path $Config) {
+    foreach ($line in Get-Content $Config) {
+        $l = $line -replace '#.*$', ''
+        $l = $l.Trim()
+        if (-not $l) { continue }
+        if ($l -notmatch '=') { continue }
+        $k, $v = $l -split '=', 2
+        $k = $k.Trim()
+        $v = $v.Trim().Trim('"').Trim("'")
+        $fileSettings[$k] = $v
+    }
+}
+
+# Resolve a setting: explicit param > env var > file > default.
+function Resolve-Setting {
+    param([string]$Param, [string]$EnvName, [string]$Default)
+    if ($Param) { return $Param }
+    $envVal = [Environment]::GetEnvironmentVariable($EnvName)
+    if ($envVal) { return $envVal }
+    if ($fileSettings.ContainsKey($EnvName)) { return $fileSettings[$EnvName] }
+    return $Default
+}
+
+$ImageName    = Resolve-Setting $ImageName    'IMAGE'      'lineage16-urd'
+$SrcVolume    = Resolve-Setting $SrcVolume    'SRC_DIR'    'lineage-src'
+$CcacheVolume = Resolve-Setting $CcacheVolume 'CCACHE_DIR' 'lineage-ccache'
+$MemLimit     = Resolve-Setting $MemLimit     'MEM'        '7g'
+$Jobs         = Resolve-Setting $Jobs         'JOBS'       '4'
 
 # --- helpers ---------------------------------------------------------------
 

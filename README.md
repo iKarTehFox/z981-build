@@ -61,6 +61,7 @@ z981-build/
 ├── build-image.sh          # thin wrapper around `docker build` (+ --check)
 ├── run.ps1                 # Windows (PowerShell) driver, uses named volumes
 ├── urd_manifest.xml        # local manifest (forks + kernel branch fix)
+├── settings.conf.example   # copy to settings.conf for local paths
 ├── patch-*.py              # 3 idempotent upstream patches (see below)
 └── LICENSE                 # GPL-2.0 (covers this repo's files only)
 ```
@@ -75,7 +76,8 @@ By default, everything lives next to this directory:
 | `../out`       | `/src/out`     | build output (~40 GB)       |
 | `../ccache`    | `/ccache`      | compiler cache (≤30 GB)     |
 
-Override with `SRC_DIR`, `OUT_DIR`, `CCACHE_DIR`.
+Override with `SRC_DIR`, `OUT_DIR`, `CCACHE_DIR`, or put them in a
+`settings.conf` (see below).
 
 **Optional speed-up:** Android builds are I/O-heavy, and most of that I/O is in
 `out/`. If you have a fast SSD/NVMe alongside a slower HDD, put the source tree
@@ -105,6 +107,33 @@ This is purely an optimization — the defaults work fine on a single disk.
 
 Environment overrides: `IMAGE`, `SRC_DIR`, `OUT_DIR`, `CCACHE_DIR`, `MEM`,
 `JOBS`, `RUN_AS_USER`.
+
+### Settings file
+
+Copy `settings.conf.example` to `settings.conf` and edit it. Both drivers read
+it automatically, so you don't have to export variables or pass flags every
+time:
+
+```bash
+cp settings.conf.example settings.conf
+$EDITOR settings.conf
+```
+
+```ini
+SRC_DIR=/mnt/500G/lineage-src
+OUT_DIR=/mnt/NVME/lineage-out
+```
+
+Precedence, highest first:
+
+1. command-line flag — `./run.sh --src /path build`, `.\run.ps1 -SrcVolume x build`
+2. environment variable — `SRC_DIR=/path ./run.sh build`
+3. `settings.conf`
+4. built-in default
+
+So the file only supplies defaults; you can always override per-run without
+editing it. `settings.conf` is gitignored — use `--config FILE` (or `-Config`)
+to point at a different file.
 
 ---
 
