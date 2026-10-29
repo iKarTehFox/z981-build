@@ -91,6 +91,72 @@ do_sync() {
     cd "$SRC"
     # -j4 for network parallelism; --force-sync to recover from interruptions
     repo sync -c -j4 --force-sync --no-clone-bundle --no-tags
+
+    do_lfs_pull
+}
+
+# --- 2a. fetch Git LFS objects ----------------------------------------------
+# `repo sync` checks out Git LFS *pointer* files (~130 bytes) instead of the
+# real binaries for some prebuilts. The build then dies at ~96% with
+# "java.util.zip.ZipException: zip END header not found" when it tries to sign
+# the webview APK.
+#
+# This happens on every clean sync, so fetch the real objects right after
+# syncing. `git lfs pull` is idempotent: it is a no-op once the file is real.
+#
+# Only the known LFS paths are checked (a full-tree scan would be slow on a
+# 50 GB tree). Add new entries to LFS_PATHS if another prebuilt shows up as a
+# pointer.
+LFS_PATHS=(
+    external/chromium-webview/prebuilt/arm/webview.apk
+    external/chromium-webview/prebuilt/arm64/webview.apk
+    external/chromium-webview/prebuilt/x86/webview.apk
+    external/chromium-webview/prebuilt/x86_64/webview.apk
+)
+
+# A Git LFS pointer is a small text file; the real APKs are tens/hundreds of MB.
+LFS_POINTER_MAX=1024
+
+do_lfs_pull() {
+    log "fetching Git LFS objects"
+
+    # The image installs git-lfs and runs `git lfs install --system` (see
+    # Dockerfile), so a missing binary means a broken image. Fail fast rather
+    # than skipping: a skipped fetch only surfaces hours later as
+    # "zip END header not found" at ~96%.
+    if ! command -v git-lfs >/dev/null 2>&1; then
+        echo "ERROR: git-lfs is not installed in the build image." >&2
+        echo "       Rebuild it with: ./run.sh build-image" >&2
+        exit 1
+    fi
+
+    local path dir size
+    for path in "${LFS_PATHS[@]}"; do
+        if [ ! -e "$SRC/$path" ]; then
+            echo "  skip $path (not present in this tree)"
+            continue
+        fi
+        size=$(stat -c %s "$SRC/$path" 2>/dev/null || echo 0)
+        if [ "$size" -ge "$LFS_POINTER_MAX" ]; then
+            echo "  ok   $path ($size bytes)"
+            continue
+        fi
+
+        dir=$(dirname "$SRC/$path")
+        echo "  pull $path (pointer, $size bytes)"
+        if ! ( cd "$dir" && git lfs pull ); then
+            echo "ERROR: git lfs pull failed in $dir" >&2
+            echo "       The build will fail at ~96% with 'zip END header not found'." >&2
+            exit 1
+        fi
+
+        size=$(stat -c %s "$SRC/$path" 2>/dev/null || echo 0)
+        if [ "$size" -lt "$LFS_POINTER_MAX" ]; then
+            echo "ERROR: $path is still an LFS pointer after 'git lfs pull'" >&2
+            exit 1
+        fi
+        echo "  ok   $path ($size bytes)"
+    done
 }
 
 # --- 2b. apply upstream patches ---------------------------------------------
@@ -130,6 +196,10 @@ do_build() {
     check_fs
     log "build ($DEVICE), jobs=$JOBS"
     cd "$SRC"
+
+    # Cheap safety net: if a prebuilt is still an LFS pointer (e.g. the tree was
+    # synced by hand), fetch it now instead of failing at ~96% during signing.
+    do_lfs_pull
 
     do_patch
 

@@ -239,9 +239,10 @@ WSL2 VM and support renames natively.
 The build produces a flashable zip. To install it:
 
 ```bash
-adb reboot bootloader          # or: adb reboot recovery
-fastboot flash recovery twrp.img
-# then in TWRP: wipe data, flash the lineage-16.0-*-urd.zip
+adb reboot recovery
+adb shell 'twrp sideload'
+# wipe data if necessary, then:
+adb sideload /path/to/lineage.zip
 ```
 
 The device must be on the correct firmware base (stock Android 6.0.1) and have
